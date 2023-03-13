@@ -262,8 +262,10 @@ class TinySlam:
         ray_angles = np.arange(-np.pi,np.pi,np.pi/1800)
 
         # Poor implementation of polar to cartesian conversion
-        points = []
-        for i in range(3600):
-            pt_x = ranges[i] * np.cos(ray_angles[i])
-            pt_y = ranges[i] * np.sin(ray_angles[i])
-            points.append([pt_x,pt_y])
+        points = [ranges*np.cos(ray_angles), ranges*np.sin(ray_angles)]
+
+
+        #for i in range(3600):
+        #    pt_x = ranges[i] * np.cos(ray_angles[i])
+        #    pt_y = ranges[i] * np.sin(ray_angles[i])
+        #    points.append([pt_x,pt_y])
