@@ -8,7 +8,7 @@ def reactive_obst_avoid(lidar):
     Simple obstacle avoidance
     lidar : placebot object with lidar data
     """
-    span = 30
+    span = 15
     distances = lidar.get_sensor_values()
     angles = lidar.get_ray_angles()
     index = np.where(angles == 0)[0][0]
@@ -19,12 +19,13 @@ def reactive_obst_avoid(lidar):
 
     if mindistance < 70 :
         forward = 0
-        indexangle = np.where(distances == np.max(distances))
-        rotation = angles[indexangle]
-        rotation = rotation/np.pi
-        print(rotation)
+        #indexangle = np.where(distances == np.max(distances))
+        #rotation = angles[indexangle]
+        #rotation = rotation/np.pi
+        rotation = np.random.uniform(-1,1)
+    
     else :
-        forward = 0.2
+        forward = 1
         rotation = 0
 
     command = {"forward": forward,
@@ -39,9 +40,19 @@ def potential_field_control(lidar, pose, goal):
     pose : [x, y, theta] nparray, current pose in odom or world frame
     goal : [x, y, theta] nparray, target pose in odom or world frame
     """
-   # TODO for TP2
+    distances = lidar.get_sensor_values()
+    angles = lidar.get_ray_angles()
+    ecart = [goal[0]-pose[0], goal[1]-pose[1]]
+    Kgoal = 1
+    pregrad = Kgoal/np.linalg.norm(ecart)
+    gradient = np.array([pregrad*ecart[0], pregrad*ecart[1]])
+    gradient_angle = np.arctan2(gradient[0], gradient[1])
+    gradient_norme = np.linalg.norm(gradient)
+    velocity = np.clip(0.01*np.log(np.linalg.norm(ecart)), -1, 1)
+    rotation = (gradient_angle-pose[2])/np.pi
+    print("Velocity : "  ,velocity, " Rotation : ", rotation)
 
-    command = {"forward": 0,
-               "rotation": 0}
+    command = {"forward": velocity,
+               "rotation": rotation}
 
     return command
