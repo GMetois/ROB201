@@ -43,7 +43,7 @@ def potential_field_control(lidar, pose, goal):
     """
     #Paramètres
     dchang = 200
-    rmin = 20
+    rmin = 10
     dsafe = 50
 
     #Acquisition des données.
@@ -53,30 +53,39 @@ def potential_field_control(lidar, pose, goal):
     ecart_norm = np.linalg.norm(ecart)
     
     #Détection de l'obstacle le plus proche.
-    index = np.where(distances == np.min(distances))[0][0]
+    index = np.argmin(distances)
     mindist = distances[index]
     minangle = angles[index]
-    #print("Minangle : ", minangle)
+    obstacle_position = np.array([pose[0] + mindist*np.cos(minangle)+pose[2], pose[1] + mindist*np.sin(minangle)+pose[2]])
+    obstacle_distance = np.linalg.norm(obstacle_position - np.array([pose[0], pose[1]]))
     if mindist < dsafe :
         #print("Wall Detected")
-        Kobs = 5000000
+        Kobs = 10000
         pregrad = Kobs/(mindist**3)*((1/mindist)-(1/dsafe))
-        gradient_obstacle = np.array([pregrad*mindist*np.cos(minangle), pregrad*mindist*np.sin(minangle)])
+        gradient_obstacle = pregrad*(obstacle_distance - np.array([pose[0],pose [1]]))
     else :
         gradient_obstacle = np.array([0,0])
     print("Gradient Obstacle : ", gradient_obstacle)
 
+
+    #values,angles = lidar.get_sensor_values(), lidar.get_ray_angles()
+    #min_val = np.argmin(values)
+    #obstacle_pos = np.array([pose[0] + values[min_val]*np.cos(angles[min_val])+pose[2],pose[1] + values[min_val]*np.sin(angles[min_val])+pose[2]])
+    #obs_dist = np.linalg.norm(obstacle_pos-np.array([pose[0],pose[1]]))
+    #gradient_obstacle = 1e3/(obs_dist**3)*(1/obs_dist-1/dsafe)*(obs_dist-pose[:1]) if obs_dist < dsafe else np.array([0,0])
+
+
     #Cas éloigné - Potentiel conique.
     if ecart_norm > dchang :
-        Kcone = 100
+        Kcone = 1
         pregrad = Kcone/np.linalg.norm(ecart)
         gradient = np.array([pregrad*ecart[0], pregrad*ecart[1]])
         print("Old Gradient : ", gradient)
-        gradient = gradient - gradient_obstacle
+        gradient = gradient + gradient_obstacle
         print("New Gradient : ", gradient)
         gradient_angle = np.arctan2(gradient[1], gradient[0])
         gradient_norme = np.linalg.norm(gradient)
-        velocity = np.clip(0.01*np.log(gradient_norme), -1, 1)
+        velocity = np.clip(0.01*np.log(gradient_norme+1), -1, 1)
         #velocity = np.clip(gradient_norme, -1, 1)
         rotation = np.clip((gradient_angle-pose[2])/np.pi, -1, 1)
 
@@ -86,12 +95,12 @@ def potential_field_control(lidar, pose, goal):
         Kquad = 1/dchang
         gradient = np.array([Kquad*ecart[0], Kquad*ecart[1]])
         print("Old Gradient : ", gradient)
-        gradient = gradient - gradient_obstacle
+        gradient = gradient + gradient_obstacle
         print("New Gradient : ", gradient)
         gradient_angle = np.arctan2(gradient[1], gradient[0])
         gradient_norme = np.linalg.norm(gradient)
-        #velocity = np.clip(0.05*np.log(gradient_norme), -1, 1)
-        velocity = np.clip(gradient_norme, -1, 1)
+        velocity = np.clip(0.05*np.log(gradient_norme+1), -1, 1)
+        #velocity = np.clip(gradient_norme, -1, 1)
         rotation = np.clip((gradient_angle-pose[2])/np.pi, -1, 1)
     
     #Cas touché - On s'arrête.
@@ -99,7 +108,7 @@ def potential_field_control(lidar, pose, goal):
         velocity = 0
         rotation = 0
 
-    print("Velocity : " , velocity, " Rotation : ", rotation)
+    print("Position : ", pose[0], pose[1], "Velocity : " , velocity, " Rotation : ", rotation)
 
     command = {"forward": velocity,
                "rotation": rotation}

@@ -52,6 +52,6 @@ class MyRobotSlam(RobotAbstract):
         #Init robot pos (439.0, 195.0)
         #Map Size (1113, 750)
 
-        command = potential_field_control(self.lidar(), self.odometer_values(), [-500,-250,0])
+        command = potential_field_control(self.lidar(), self.odometer_values(), [100,100,0])
 
         return command
