@@ -56,10 +56,10 @@ def potential_field_control(lidar, pose, goal):
     index = np.where(distances == np.min(distances))[0][0]
     mindist = distances[index]
     minangle = angles[index]
-    print("Minangle : ", minangle)
+    #print("Minangle : ", minangle)
     if mindist < dsafe :
         #print("Wall Detected")
-        Kobs = 5000
+        Kobs = 5000000
         pregrad = Kobs/(mindist**3)*((1/mindist)-(1/dsafe))
         gradient_obstacle = np.array([pregrad*mindist*np.cos(minangle), pregrad*mindist*np.sin(minangle)])
     else :
@@ -76,12 +76,13 @@ def potential_field_control(lidar, pose, goal):
         print("New Gradient : ", gradient)
         gradient_angle = np.arctan2(gradient[1], gradient[0])
         gradient_norme = np.linalg.norm(gradient)
-        #velocity = np.clip(0.01*np.log(np.linalg.norm(ecart)), -1, 1)
-        velocity = np.clip(gradient_norme, -1, 1)
+        velocity = np.clip(0.01*np.log(gradient_norme), -1, 1)
+        #velocity = np.clip(gradient_norme, -1, 1)
         rotation = np.clip((gradient_angle-pose[2])/np.pi, -1, 1)
 
     #Cas proche - Potentiel quadratique.
     elif rmin < ecart_norm <= dchang :
+        print("Approaching the goal")
         Kquad = 1/dchang
         gradient = np.array([Kquad*ecart[0], Kquad*ecart[1]])
         print("Old Gradient : ", gradient)
@@ -89,6 +90,7 @@ def potential_field_control(lidar, pose, goal):
         print("New Gradient : ", gradient)
         gradient_angle = np.arctan2(gradient[1], gradient[0])
         gradient_norme = np.linalg.norm(gradient)
+        #velocity = np.clip(0.05*np.log(gradient_norme), -1, 1)
         velocity = np.clip(gradient_norme, -1, 1)
         rotation = np.clip((gradient_angle-pose[2])/np.pi, -1, 1)
     
