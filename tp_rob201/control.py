@@ -64,7 +64,7 @@ def potential_field_control(lidar, pose, goal):
         gradient_obstacle = pregrad*(obstacle_position - np.array([pose[0],pose [1]]))
     else :
         gradient_obstacle = np.array([0,0])
-    print("Gradient Obstacle : ", gradient_obstacle)
+    #print("Gradient Obstacle : ", gradient_obstacle)
 
 
     #values,angles = lidar.get_sensor_values(), lidar.get_ray_angles()
@@ -79,9 +79,9 @@ def potential_field_control(lidar, pose, goal):
         Kcone = 0.1
         pregrad = Kcone/np.linalg.norm(ecart)
         gradient = np.array([pregrad*ecart[0], pregrad*ecart[1]])
-        print("Old Gradient : ", gradient)
+        #print("Old Gradient : ", gradient)
         gradient = gradient - gradient_obstacle
-        print("New Gradient : ", gradient)
+        #print("New Gradient : ", gradient)
         gradient_angle = np.arctan2(gradient[1], gradient[0])
         gradient_norme = np.linalg.norm(gradient)
         velocity = np.clip(gradient_norme*np.cos(gradient_angle-pose[2]), -1, 1)
@@ -90,12 +90,12 @@ def potential_field_control(lidar, pose, goal):
 
     #Cas proche - Potentiel quadratique.
     elif rmin < ecart_norm <= dchang :
-        print("Approaching the goal")
+        #print("Approaching the goal")
         Kquad = 0.1/dchang
         gradient = np.array([Kquad*ecart[0], Kquad*ecart[1]])
-        print("Old Gradient : ", gradient)
+        #print("Old Gradient : ", gradient)
         gradient = gradient - gradient_obstacle
-        print("New Gradient : ", gradient)
+        #print("New Gradient : ", gradient)
         gradient_angle = np.arctan2(gradient[1], gradient[0])
         gradient_norme = np.linalg.norm(gradient)
         velocity = np.clip(gradient_norme*np.cos(gradient_angle-pose[2]), -1, 1)

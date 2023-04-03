@@ -167,15 +167,21 @@ class TinySlam:
         """
         distances = lidar.get_sensor_values()
         angles = lidar.get_ray_angles()
+        
         corrected_angles = angles + pose[2]
-        coordinates_robot = np.array([(np.cos(angles[i])*distances[i], np.sin(angles[i])*distances[i]) for i in range(len(distances))])
-        coordinates_global = np.array([i + (pose[0],pose[1]) for i in coordinates_robot])
-        for point in coordinates_global :
-            TinySlam.add_map_line(self, pose[0], pose[1], point[0], point[1], -4)
-        coord_x = np.array([point[0] for point in coordinates_global])
-        coord_y = np.array([point[1] for point in coordinates_global])
-        TinySlam.add_map_points(self, coord_x, coord_y, +4)
-        TinySlam.display2(self, pose)
+        coordinates_robot_x = pose[0] + np.cos(corrected_angles)*distances
+        coordinates_robot_y = pose[1] + np.sin(corrected_angles)*distances
+        lenght = len(coordinates_robot_x)
+        
+        for i in range(lenght) :
+            self.add_map_line(pose[0], pose[1], coordinates_robot_x[i], coordinates_robot_y[i], -4)
+        
+        self.add_map_points(coordinates_robot_x, coordinates_robot_y, +4)
+        self.display(pose)
+
+        #Seuillage
+        self.occupancy_map[self.occupancy_map > 4] = 4
+        self.occupancy_map[self.occupancy_map < -4] = -4
 
     def plan(self, start, goal):
         """

@@ -45,13 +45,15 @@ class MyRobotSlam(RobotAbstract):
         """
         self.counter += 1
 
-        self.tiny_slam.compute()
+        #self.tiny_slam.update_map(self.lidar(), self.odometer_values())
 
         # Compute new command speed to perform obstacle avoidance
 
         #Init robot pos (439.0, 195.0)
         #Map Size (1113, 750)
 
-        command = potential_field_control(self.lidar(), self.odometer_values(), [100,100,0])
+        #command = potential_field_control(self.lidar(), self.odometer_values(), [100,100,0])
+        command = {"forward": 0,
+               "rotation": 0}
 
         return command
