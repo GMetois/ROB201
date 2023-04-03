@@ -165,8 +165,17 @@ class TinySlam:
         lidar : placebot object with lidar data
         pose : [x, y, theta] nparray, corrected pose in world coordinates
         """
-        # TODO for TP3
-
+        distances = lidar.get_sensor_values()
+        angles = lidar.get_ray_angles()
+        corrected_angles = angles + pose[2]
+        coordinates_robot = np.array([(np.cos(angles[i])*distances[i], np.sin(angles[i])*distances[i]) for i in range(len(distances))])
+        coordinates_global = np.array([i + (pose[0],pose[1]) for i in coordinates_robot])
+        for point in coordinates_global :
+            TinySlam.add_map_line(self, pose[0], pose[1], point[0], point[1], -4)
+        coord_x = np.array([point[0] for point in coordinates_global])
+        coord_y = np.array([point[1] for point in coordinates_global])
+        TinySlam.add_map_points(self, coord_x, coord_y, +4)
+        TinySlam.display2(self, pose)
 
     def plan(self, start, goal):
         """

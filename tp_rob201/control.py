@@ -80,7 +80,7 @@ def potential_field_control(lidar, pose, goal):
         pregrad = Kcone/np.linalg.norm(ecart)
         gradient = np.array([pregrad*ecart[0], pregrad*ecart[1]])
         print("Old Gradient : ", gradient)
-        gradient = gradient + gradient_obstacle
+        gradient = gradient - gradient_obstacle
         print("New Gradient : ", gradient)
         gradient_angle = np.arctan2(gradient[1], gradient[0])
         gradient_norme = np.linalg.norm(gradient)
@@ -94,7 +94,7 @@ def potential_field_control(lidar, pose, goal):
         Kquad = 0.1/dchang
         gradient = np.array([Kquad*ecart[0], Kquad*ecart[1]])
         print("Old Gradient : ", gradient)
-        gradient = gradient + gradient_obstacle
+        gradient = gradient - gradient_obstacle
         print("New Gradient : ", gradient)
         gradient_angle = np.arctan2(gradient[1], gradient[0])
         gradient_norme = np.linalg.norm(gradient)
