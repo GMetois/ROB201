@@ -165,23 +165,8 @@ class TinySlam:
         lidar : placebot object with lidar data
         pose : [x, y, theta] nparray, corrected pose in world coordinates
         """
-        distances = lidar.get_sensor_values()
-        angles = lidar.get_ray_angles()
-        
-        corrected_angles = angles + pose[2]
-        coordinates_robot_x = pose[0] + np.cos(corrected_angles)*distances
-        coordinates_robot_y = pose[1] + np.sin(corrected_angles)*distances
-        lenght = len(coordinates_robot_x)
-        
-        for i in range(lenght) :
-            self.add_map_line(pose[0], pose[1], coordinates_robot_x[i], coordinates_robot_y[i], -4)
-        
-        self.add_map_points(coordinates_robot_x, coordinates_robot_y, +4)
-        self.display(pose)
+        # TODO for TP3
 
-        #Seuillage
-        self.occupancy_map[self.occupancy_map > 4] = 4
-        self.occupancy_map[self.occupancy_map < -4] = -4
 
     def plan(self, start, goal):
         """
@@ -277,10 +262,8 @@ class TinySlam:
         ray_angles = np.arange(-np.pi,np.pi,np.pi/1800)
 
         # Poor implementation of polar to cartesian conversion
-        points = [ranges*np.cos(ray_angles), ranges*np.sin(ray_angles)]
-
-
-        #for i in range(3600):
-        #    pt_x = ranges[i] * np.cos(ray_angles[i])
-        #    pt_y = ranges[i] * np.sin(ray_angles[i])
-        #    points.append([pt_x,pt_y])
+        points = []
+        for i in range(3600):
+            pt_x = ranges[i] * np.cos(ray_angles[i])
+            pt_y = ranges[i] * np.sin(ray_angles[i])
+            points.append([pt_x,pt_y])
