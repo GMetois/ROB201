@@ -143,11 +143,15 @@ class TinySlam:
         y_poses = pose[1] + distances_corrected*np.sin(angles_corrected)
 
         #Suppression des points hors carte
-        x_world, y_world = self._conv_world_to_map(x_poses, y_poses)
-        remove_index_x = np.argwhere(self.x_min_world < x_world < self.x_max_world)
-        remove_index_y = np.argwhere(self.y_min_world < y_world < self.y_max_world)
+        x_map, y_map = self._conv_world_to_map(x_poses, y_poses)
+        remove_index_x = np.argwhere(0 <= x_map < self.x_max_map)
+        remove_index_y = np.argwhere(0 <= y_map < self.y_max_map)
         remove_index = np.intersect1d(remove_index_x, remove_index_y)
+        x_map = x_map[remove_index]
+        y_map = y_map[remove_index]
         
+        for i in len(x_map) :
+            score += self.occupancy_map[x_map[i], y_map[i]]
 
         return score
 
@@ -178,10 +182,22 @@ class TinySlam:
         lidar : placebot object with lidar data
         odom : [x, y, theta] nparray, raw odometry position
         """
-        # TODO for TP4
-
+        counter = 0
+        N = 10
+        sigma = 50
         best_score = 0
+        save_pos = odom
 
+        while (counter < N) :
+            (offset_x, offset_y) = np.random.normal(0, sigma, 2)
+            new_pos = (odom[0] + offset_x, odom[1] + offset_y)
+            score = self.score(lidar, new_pos)
+            if (score > best_score) :
+                best_score = score
+                counter = 0
+                save_pos = new_pos
+
+        self.odom_pose_ref = save_pos
         return best_score
 
     def update_map(self, lidar, pose):
@@ -199,14 +215,14 @@ class TinySlam:
         lenght = len(coordinates_robot_x)
         
         for i in range(lenght) :
-            self.add_map_line(pose[0], pose[1], coordinates_robot_x[i], coordinates_robot_y[i], -4)
+            self.add_map_line(pose[0], pose[1], coordinates_robot_x[i], coordinates_robot_y[i], -8)
         
-        self.add_map_points(coordinates_robot_x, coordinates_robot_y, +4)
+        self.add_map_points(coordinates_robot_x, coordinates_robot_y, +2)
         self.display(pose)
 
         #Seuillage
-        self.occupancy_map[self.occupancy_map > 4] = 4
-        self.occupancy_map[self.occupancy_map < -4] = -4
+        self.occupancy_map[self.occupancy_map > 10] = 10
+        self.occupancy_map[self.occupancy_map < -10] = -10
 
 
     def plan(self, start, goal):
