@@ -128,9 +128,26 @@ class TinySlam:
         lidar : placebot object with lidar data
         pose : [x, y, theta] nparray, position of the robot to evaluate, in world coordinates
         """
-        
-
+        angles = lidar.get_ray_angles()
+        distances = lidar.get_sensor_values()
         score = 0
+        max_range = lidar.max_range
+
+        #Filtrage des points en dehors de la mesure du laser
+        remove_index = np.argwhere(distances < max_range)
+        distances_corrected = distances[remove_index]
+        angles_corrected = angles[remove_index]
+
+        #Conversion dans le repère global du robot
+        x_poses = pose[0] + distances_corrected*np.cos(angles_corrected)
+        y_poses = pose[1] + distances_corrected*np.sin(angles_corrected)
+
+        #Suppression des points hors carte
+        x_world, y_world = self._conv_world_to_map(x_poses, y_poses)
+        remove_index_x = np.argwhere(self.x_min_world < x_world < self.x_max_world)
+        remove_index_y = np.argwhere(self.y_min_world < y_world < self.y_max_world)
+        remove_index = np.intersect1d(remove_index_x, remove_index_y)
+        
 
         return score
 
@@ -142,13 +159,18 @@ class TinySlam:
         odom_pose_ref : optional, origin of the odom frame if given,
                         use self.odom_pose_ref if not given
         """
-        
-        if odom_pose_ref == None :
-            odom_pose = 
+        odom_pose = np.zeros(3)
 
-        corrected_pose = odom_pose
+        if odom_pose_ref != None :
+            odom_pose[0] = odom[0] + odom_pose_ref*np.cos(odom[2] + odom_pose_ref[2])
+            odom_pose[1] = odom[1] + odom_pose_ref*np.sin(odom[2] + odom_pose_ref[2])
+            odom_pose[2] = odom[2] + odom_pose_ref[2]
+        else :
+            odom_pose[0] = odom[0] + self.odom_pose_ref*np.cos(odom[2] + self.odom_pose_ref[2])
+            odom_pose[1] = odom[1] + self.odom_pose_ref*np.sin(odom[2] + self.odom_pose_ref[2])
+            odom_pose[2] = odom[2] + self.odom_pose_ref[2]
 
-        return corrected_pose
+        return odom_pose
 
     def localise(self, lidar, odom):
         """
