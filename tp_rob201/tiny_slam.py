@@ -128,7 +128,7 @@ class TinySlam:
         lidar : placebot object with lidar data
         pose : [x, y, theta] nparray, position of the robot to evaluate, in world coordinates
         """
-        # TODO for TP4
+        
 
         score = 0
 
@@ -142,7 +142,10 @@ class TinySlam:
         odom_pose_ref : optional, origin of the odom frame if given,
                         use self.odom_pose_ref if not given
         """
-        # TODO for TP4
+        
+        if odom_pose_ref == None :
+            odom_pose = 
+
         corrected_pose = odom_pose
 
         return corrected_pose
@@ -165,7 +168,23 @@ class TinySlam:
         lidar : placebot object with lidar data
         pose : [x, y, theta] nparray, corrected pose in world coordinates
         """
-        # TODO for TP3
+        distances = lidar.get_sensor_values()
+        angles = lidar.get_ray_angles()
+        
+        corrected_angles = angles + pose[2]
+        coordinates_robot_x = pose[0] + np.cos(corrected_angles)*distances
+        coordinates_robot_y = pose[1] + np.sin(corrected_angles)*distances
+        lenght = len(coordinates_robot_x)
+        
+        for i in range(lenght) :
+            self.add_map_line(pose[0], pose[1], coordinates_robot_x[i], coordinates_robot_y[i], -4)
+        
+        self.add_map_points(coordinates_robot_x, coordinates_robot_y, +4)
+        self.display(pose)
+
+        #Seuillage
+        self.occupancy_map[self.occupancy_map > 4] = 4
+        self.occupancy_map[self.occupancy_map < -4] = -4
 
 
     def plan(self, start, goal):
