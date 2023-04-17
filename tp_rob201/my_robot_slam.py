@@ -50,11 +50,11 @@ class MyRobotSlam(RobotAbstract):
         #Init robot pos (439.0, 195.0)
         #Map Size (1113, 750)
 
-        #Localisation
-        self.tiny_slam.localise(self.lidar(),self.odometer_values())
-
         #Updating the map
         self.tiny_slam.update_map(self.lidar(),self.odometer_values())
+
+        #Localisation
+        self.tiny_slam.localise(self.lidar(),self.odometer_values())
 
         # Compute new command speed to perform obstacle avoidance
         command = potential_field_control(self.lidar(), self.odometer_values(), [100,100,0])

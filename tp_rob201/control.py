@@ -62,18 +62,10 @@ def potential_field_control(lidar, pose, goal):
         #print("Wall Detected")
         Kobs = 10000
         pregrad = Kobs/(mindist**3)*((1/mindist)-(1/dsafe))
-        gradient_obstacle = pregrad*(obstacle_position - np.array([pose[0],pose [1]]))
+        gradient_obstacle = pregrad*(obstacle_position - np.array([pose[0],pose[1]]))
     else :
         gradient_obstacle = np.array([0,0])
     #print("Gradient Obstacle : ", gradient_obstacle)
-
-
-    #values,angles = lidar.get_sensor_values(), lidar.get_ray_angles()
-    #min_val = np.argmin(values)
-    #obstacle_pos = np.array([pose[0] + values[min_val]*np.cos(angles[min_val])+pose[2],pose[1] + values[min_val]*np.sin(angles[min_val])+pose[2]])
-    #obs_dist = np.linalg.norm(obstacle_pos-np.array([pose[0],pose[1]]))
-    #gradient_obstacle = 1e3/(obs_dist**3)*(1/obs_dist-1/dsafe)*(obs_dist-pose[:1]) if obs_dist < dsafe else np.array([0,0])
-
 
     #Cas éloigné - Potentiel conique.
     if ecart_norm > dchang :

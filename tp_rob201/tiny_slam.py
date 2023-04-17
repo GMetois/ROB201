@@ -135,23 +135,21 @@ class TinySlam:
 
         #Filtrage des points en dehors de la mesure du laser
         remove_index = np.argwhere(distances < max_range)
-        distances_corrected = distances[remove_index]
-        angles_corrected = angles[remove_index]
+        distances_corrected, angles_corrected = distances[remove_index], angles[remove_index]
 
-        #Conversion dans le repère global du robot
+        #Conversion dans le repère global de l'odométrie
         x_poses = pose[0] + distances_corrected*np.cos(angles_corrected)
         y_poses = pose[1] + distances_corrected*np.sin(angles_corrected)
 
         #Suppression des points hors carte
         x_map, y_map = self._conv_world_to_map(x_poses, y_poses)
-        remove_index_x = np.argwhere(0 <= x_map < self.x_max_map)
-        remove_index_y = np.argwhere(0 <= y_map < self.y_max_map)
+        remove_index_x = np.where((0 < x_map) & (x_map < self.x_max_map))
+        remove_index_y = np.where((0 < y_map) & (y_map < self.y_max_map))
         remove_index = np.intersect1d(remove_index_x, remove_index_y)
         x_map = x_map[remove_index]
         y_map = y_map[remove_index]
         
-        for i in len(x_map) :
-            score += self.occupancy_map[x_map[i], y_map[i]]
+        score = np.sum(self.occupancy_map[x_map, y_map])
 
         return score
 
@@ -187,11 +185,11 @@ class TinySlam:
         sigma = 50
         best_score = 0
         save_pos = odom
-
         while (counter < N) :
             (offset_x, offset_y) = np.random.normal(0, sigma, 2)
             new_pos = (odom[0] + offset_x, odom[1] + offset_y)
             score = self.score(lidar, new_pos)
+            counter += 1
             if (score > best_score) :
                 best_score = score
                 counter = 0
@@ -208,16 +206,22 @@ class TinySlam:
         """
         distances = lidar.get_sensor_values()
         angles = lidar.get_ray_angles()
+        max_range = lidar.max_range
+        index = np.where(distances < max_range-10)
+        distances = distances[index]
+        angles = angles[index]
         
         corrected_angles = angles + pose[2]
         coordinates_robot_x = pose[0] + np.cos(corrected_angles)*distances
         coordinates_robot_y = pose[1] + np.sin(corrected_angles)*distances
+        coordinates_robot_x_far = pose[0] + np.cos(corrected_angles)*distances*0.99
+        coordinates_robot_y_far = pose[1] + np.sin(corrected_angles)*distances*0.99
         lenght = len(coordinates_robot_x)
         
         for i in range(lenght) :
-            self.add_map_line(pose[0], pose[1], coordinates_robot_x[i], coordinates_robot_y[i], -8)
+            self.add_map_line(pose[0], pose[1], coordinates_robot_x_far[i], coordinates_robot_y_far[i], -2)
         
-        self.add_map_points(coordinates_robot_x, coordinates_robot_y, +2)
+        self.add_map_points(coordinates_robot_x, coordinates_robot_y, +4)
         self.display(pose)
 
         #Seuillage
