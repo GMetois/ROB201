@@ -39,6 +39,13 @@ class MyRobotSlam(RobotAbstract):
         # storage for pose after localization
         self.corrected_pose = np.array([0, 0, 0])
 
+        # storage for frontier exploration
+        self.frontier_list = np.array([])
+
+        # storage of the current goal
+        self.near_goal = True
+        self.current_goal = np.array([0,0,0])
+
     def control(self):
         """
         Main control function executed at each time step
@@ -50,13 +57,30 @@ class MyRobotSlam(RobotAbstract):
         #Init robot pos (439.0, 195.0)
         #Map Size (1113, 750)
 
+
         #Updating the map
         self.tiny_slam.update_map(self.lidar(),self.odometer_values())
 
         #Localisation
         self.tiny_slam.localise(self.lidar(),self.odometer_values())
 
+        #Getting the frontiers
+        self.frontier_list = self.tiny_slam.frontier(self.odometer_values())
+
+        #Setting the new goal if necessary
+        if self.near_goal :
+            self.near_goal = False
+            if len(self.frontier_list) > 0 :
+                spot = self.frontier_list[0][0]
+                self.current_goal = self.tiny_slam._conv_map_to_world(spot[0], spot[1])
+            else :
+                self.current_goal = np.random.normal(0, 100, 3) + self.odometer_values()
+                print("No frontier found, random goal")
+
+        if (np.linalg.norm((self.odometer_values() - self.current_goal)[:1]) < 10) :
+            self.near_goal = True
+
         # Compute new command speed to perform obstacle avoidance
-        command = potential_field_control(self.lidar(), self.odometer_values(), [100,100,0])
+        command = potential_field_control(self.lidar(), self.odometer_values(), self.current_goal)
 
         return command

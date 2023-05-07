@@ -5,7 +5,8 @@ import pickle
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-
+import heapq
+import sys
 
 class TinySlam:
     """Simple occupancy grid SLAM"""
@@ -128,7 +129,7 @@ class TinySlam:
         lidar : placebot object with lidar data
         pose : [x, y, theta] nparray, position of the robot to evaluate, in world coordinates
         """
-        angles = lidar.get_ray_angles()
+        angles = lidar.get_ray_angles() + pose[2]
         distances = lidar.get_sensor_values()
         score = 0
         max_range = lidar.max_range
@@ -187,7 +188,8 @@ class TinySlam:
         save_pos = odom
         while (counter < N) :
             (offset_x, offset_y) = np.random.normal(0, sigma, 2)
-            new_pos = (odom[0] + offset_x, odom[1] + offset_y)
+            offset_angle = np.random.normal(0, 0.2)
+            new_pos = (odom[0] + offset_x, odom[1] + offset_y, odom[2] + offset_angle)
             score = self.score(lidar, new_pos)
             counter += 1
             if (score > best_score) :
@@ -315,16 +317,175 @@ class TinySlam:
         """
         # TODO
 
-    def compute(self):
-        """ Useless function, just for the exercise on using the profiler """
-        # Remove after TP1
+    def get_neighbors(self, current):
 
-        ranges = np.random.rand(3600)
-        ray_angles = np.arange(-np.pi,np.pi,np.pi/1800)
+        voisins = []
+        x_map, y_map = self._conv_world_to_map(current[0], current[1])
+        for i in range(-1,1,1) :
+            for j in range(-1,-1,1):
+                pos = [x_map+i, y_map+j]
+                if ( (i,j) != (0,0) and self.occupancy_map[pos[0], pos[1]] < 0 and 0 < pos[0] and pos[0] < self.x_max_map and 0 < pos[1] and pos[1] < self.y_max_map):
+                    voisins.append(pos)
+        return voisins
+    
+    
+    #Reconstruct the followed path in the world coordinates
+    def reconstruct_path(self, cameFrom, start, goal) :
+        path = []
+        current = goal
+        while current != start :
+            current_world = self._conv_map_to_world(current[0], current[1])
+            path = [current_world] + path
+            current = cameFrom[current]
+        return path
+    
+    def heuristic(self, a, b):
+        return np.linalg.norm(b-a)
 
-        # Poor implementation of polar to cartesian conversion
-        points = []
-        for i in range(3600):
-            pt_x = ranges[i] * np.cos(ray_angles[i])
-            pt_y = ranges[i] * np.sin(ray_angles[i])
-            points.append([pt_x,pt_y])
+    def A_Star(self, start, goal) :
+        cameFrom = np.zeros((self.x_max_map, self.y_max_map))
+        
+        gScore = np.full((self.x_max_map, self.y_max_map), sys._float_info.max, float)
+        gScore[start] = 0
+        
+        fScore = np.full((self.x_max_map, self.y_max_map), sys._float_info.max, float)
+        fScore[start] = self.heuristic(start, goal)
+        
+        openSet = heapq.heapify([(fScore[start], start)])
+
+        notempty = True
+
+        while(notempty) :
+            current = heapq.heappop(openSet)
+            if current == IndexError :
+                notempty == False
+                break
+
+            if current[1] == goal :
+                return self.reconstruct_path(cameFrom, current)
+            
+            voisins = self.get_neighbors(current)
+
+            for i in voisins :
+                tentative_gScore = gScore[current] + self.heuristic(current, i)
+                if tentative_gScore < gScore[i] :
+                    cameFrom[i] = current
+                    gScore[i] = tentative_gScore
+                    fScore = tentative_gScore + self.heuristic(i, goal)
+                
+                ispresent = False
+                for j in openSet :
+                    if j[1] == i :
+                        ispresent == True
+                
+                if(not ispresent) :
+                    heapq.heappush(openSet, (fScore(i), i))
+
+        return False
+    
+
+    # If the point has a undiscovered neighbor, then it's a frontier
+    def is_frontier(self, pose):
+        voisins = self.get_neighbors(pose)
+        frontier = False
+
+        for i in voisins:
+            if self.occupancy_map[i] == 0 :
+                frontier == True
+        
+        return frontier
+
+
+    #Frontier detection implemented following the paper at https://arxiv.org/pdf/1806.03581.pdf
+    #
+    #Convention de notation :
+    #
+    # 1 = Map-Open-List
+    # 2 = Map-Close-List
+    # 3 = Frontier-Open-List
+    # 4 = Frontier-Close-List
+
+    def frontier(self, location):
+        #Initialising some variables
+        pose = self._conv_world_to_map(location[0], location[1])
+        result = np.array([])
+        
+        #A queue for analyzed emplacements
+        m_queue = [pose]
+        #A map for the emplacements' marking storage
+        marking = np.zeros((self.x_max_map, self.y_max_map))
+        marking[pose] = 1
+
+        #While every KNOWN emplacement have not been analysed
+        while(len(m_queue) != 0) :
+            #Pop the first element of the queue
+            p = m_queue[0]
+            m_queue = m_queue[1:]
+            print("Getting an element from the m_queue", p)
+            
+            #If p has been analysed, do nothing.
+            if(marking[p] == 2):
+                print("Already analyzed, doing nothing")
+                continue
+
+            #Else, under the condition that the emplacement is a frontier.
+            if(self.is_frontier(p) == True):
+                print("Starting building a frontier from p")
+                #New queue for frontier neighbors
+                f_queue = []
+                #Collection of the frontier's emplacement
+                NewFrontier = []
+                #Appending the new element
+                f_queue = f_queue + [p]
+                #Marking the element as part of a undiscovered frontier
+                marking[p] = 3
+                #While there's still elements of the frontier not analysed.
+                while(len(f_queue) != 0) :
+                    
+                    #Pop elements of the queue
+                    q = f_queue[0]
+                    f_queue = f_queue[1:]
+
+                    #If already analysed
+                    if (marking[q] in (2, 4)):
+                        continue
+                    #Else if the emplacement is part of a frontier (hence the current one)
+                    if (self.is_frontier(q) == True):
+                        #Add it to the frontier
+                        NewFrontier = NewFrontier + [q]
+
+                        #Getting its neighbors and adding them to the queue if possible.
+                        voisins = self.get_neighbors(q)
+                        for i in voisins :
+                            if (marking[i] not in (2, 3, 4)) :
+                                f_queue = f_queue + [i]
+                                marking[i] = 3
+                    
+                    #Characterizing the current emplacement as analyzed.
+                    marking[q] = 4
+
+                #Loading the frontier in the result
+                result = np.append(result, NewFrontier)
+                #Marking the elements of the frontier according to their new status
+                for i in NewFrontier :
+                    marking[i] = 2
+            
+            #Getting the neighbors of the current position
+            voisins = self.get_neighbors(p)
+            
+            #If the neighbors have not been analyzed, and have an open and practicable space, then add them to the queue
+            for v in voisins :
+                if (marking[v] not in (1, 2)):
+                    voisinsbis = self.get_neighbors(v)
+                    Open_Space = False
+                    for j in voisinsbis :
+                        if (self.occupancy_map[j] < 0) :
+                            Open_Space == True
+                    if Open_Space :
+                        marking[v] = 1
+                        m_queue = m_queue + [v]
+            #Marking the current emplacement as analyzed.
+            marking[p] = 2
+
+        #Returning the result.
+        return(result)
