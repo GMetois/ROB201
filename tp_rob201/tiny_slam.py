@@ -488,7 +488,13 @@ class TinySlam:
 
                 #Loading the frontier in the result, if it's big enough
                 if (len(NewFrontier) > min_numb):
-                    result.append(NewFrontier)
+                    n = len(NewFrontier[0])
+                    centroid = [0]*(n)
+                    for i in range(n):
+                        total = sum([item[i] for item in NewFrontier])
+                        centroid[i] = total/len(NewFrontier)
+                    print("Centroid is ", [int(centroid[0]), int(centroid[1])])
+                    result.append([int(centroid[0]), int(centroid[1])])
                 #print("New Frontier added ", NewFrontier)
                 #Marking the elements of the frontier according to their new status
                 for i in NewFrontier :

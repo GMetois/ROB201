@@ -74,7 +74,7 @@ class MyRobotSlam(RobotAbstract):
             
             self.near_goal = False
             if len(self.frontier_list) > 0 :
-                spot = self.frontier_list[0][0]
+                spot = self.frontier_list[0]
                 spot_world = self.tiny_slam._conv_map_to_world(spot[0], spot[1])
                 self.current_goal = [spot_world[0], spot_world[1], 0]
                 print("New goal is ", self.current_goal)
