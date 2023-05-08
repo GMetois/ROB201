@@ -318,13 +318,21 @@ class TinySlam:
         # TODO
 
     def get_neighbors(self, current):
-
         voisins = []
-        x_map, y_map = self._conv_world_to_map(current[0], current[1])
-        for i in range(-1,1,1) :
-            for j in range(-1,-1,1):
-                pos = [x_map+i, y_map+j]
+        for i in range(-1,2,1) :
+            for j in range(-1,2,1):
+                pos = [current[0]+i, current[1]+j]
                 if ( (i,j) != (0,0) and self.occupancy_map[pos[0], pos[1]] < 0 and 0 < pos[0] and pos[0] < self.x_max_map and 0 < pos[1] and pos[1] < self.y_max_map):
+                    voisins.append(pos)
+        return voisins
+    
+    #VERSION THAT DOESN'T EXCLUDE EMPTY SPOTS ON THE MAP, HENCE ALLOWS TO DETECT UNKNOWS EMPLACEMENTS AND BUILD FRONTIERS
+    def get_neighbors_frontier(self, current):
+        voisins = []
+        for i in range(-1,2,1) :
+            for j in range(-1,2,1):
+                pos = [current[0]+i, current[1]+j]
+                if ( (i,j) != (0,0) and 0 < pos[0] and pos[0] < self.x_max_map and 0 < pos[1] and pos[1] < self.y_max_map):
                     voisins.append(pos)
         return voisins
     
@@ -386,14 +394,20 @@ class TinySlam:
 
     # If the point has a undiscovered neighbor, then it's a frontier
     def is_frontier(self, pose):
-        voisins = self.get_neighbors(pose)
-        frontier = False
+        voisins = self.get_neighbors_frontier(pose)
+        unknown = False
+        empty = False
 
         for i in voisins:
-            if self.occupancy_map[i] == 0 :
-                frontier == True
+            if self.occupancy_map[i[0], i[1]] == 0 :
+                unknown = True
+            if self.occupancy_map[i[0], i[1]] < 0 :
+                empty = True
         
-        return frontier
+        if(unknown and empty) :
+            return(True)
+        else :
+            return(False)
 
 
     #Frontier detection implemented following the paper at https://arxiv.org/pdf/1806.03581.pdf
@@ -406,86 +420,113 @@ class TinySlam:
     # 4 = Frontier-Close-List
 
     def frontier(self, location):
-        #Initialising some variables
+        #Initialising some variables and parameters
         pose = self._conv_world_to_map(location[0], location[1])
-        result = np.array([])
+        result = []
+        min_numb = 500
         
         #A queue for analyzed emplacements
         m_queue = [pose]
         #A map for the emplacements' marking storage
         marking = np.zeros((self.x_max_map, self.y_max_map))
-        marking[pose] = 1
+        marking[pose[0], pose[1]] = 1
 
         #While every KNOWN emplacement have not been analysed
         while(len(m_queue) != 0) :
             #Pop the first element of the queue
             p = m_queue[0]
             m_queue = m_queue[1:]
-            print("Getting an element from the m_queue", p)
+            #print("Getting an element from the m_queue", p)
             
             #If p has been analysed, do nothing.
-            if(marking[p] == 2):
-                print("Already analyzed, doing nothing")
+            if(marking[p[0], p[1]] == 2):
+                #print("Already analyzed, doing nothing.")
                 continue
 
             #Else, under the condition that the emplacement is a frontier.
             if(self.is_frontier(p) == True):
-                print("Starting building a frontier from p")
+                #print("Starting building a frontier from ", p)
                 #New queue for frontier neighbors
                 f_queue = []
                 #Collection of the frontier's emplacement
                 NewFrontier = []
                 #Appending the new element
                 f_queue = f_queue + [p]
+                #print("Enqueuing the element in f_queue ", f_queue)
                 #Marking the element as part of a undiscovered frontier
-                marking[p] = 3
+                marking[p[0], p[1]] = 3
                 #While there's still elements of the frontier not analysed.
                 while(len(f_queue) != 0) :
                     
                     #Pop elements of the queue
                     q = f_queue[0]
                     f_queue = f_queue[1:]
+                    #print("Popping the element ", q)
 
                     #If already analysed
-                    if (marking[q] in (2, 4)):
+                    if (marking[q[0], q[1]] in (2, 4)):
+                        #print(q, " Already marked")
                         continue
                     #Else if the emplacement is part of a frontier (hence the current one)
                     if (self.is_frontier(q) == True):
                         #Add it to the frontier
                         NewFrontier = NewFrontier + [q]
+                        #print(q, " Is in the frontier, adding it")
+                        #self.display_marking(marking)
 
                         #Getting its neighbors and adding them to the queue if possible.
-                        voisins = self.get_neighbors(q)
+                        voisins = self.get_neighbors_frontier(q)
+                        #print("Getting ", q, " neighbors ", voisins)
                         for i in voisins :
-                            if (marking[i] not in (2, 3, 4)) :
+                            if (marking[i[0], i[1]] not in (2, 3, 4)) :
                                 f_queue = f_queue + [i]
-                                marking[i] = 3
+                                marking[i[0], i[1]] = 3
+                                #print("Adding ", i, " to fqueue")
                     
                     #Characterizing the current emplacement as analyzed.
-                    marking[q] = 4
+                    marking[q[0], q[1]] = 4
 
-                #Loading the frontier in the result
-                result = np.append(result, NewFrontier)
+                #Loading the frontier in the result, if it's big enough
+                if (len(NewFrontier) > min_numb):
+                    result.append(NewFrontier)
+                #print("New Frontier added ", NewFrontier)
                 #Marking the elements of the frontier according to their new status
                 for i in NewFrontier :
-                    marking[i] = 2
+                    marking[i[0], i[1]] = 2
             
             #Getting the neighbors of the current position
-            voisins = self.get_neighbors(p)
+            voisins = self.get_neighbors_frontier(p)
+            #rint("Getting ", p, " neighbors ", voisins)
             
             #If the neighbors have not been analyzed, and have an open and practicable space, then add them to the queue
             for v in voisins :
-                if (marking[v] not in (1, 2)):
-                    voisinsbis = self.get_neighbors(v)
+                if (marking[v[0], v[1]] not in (1, 2)):
+                    voisinsbis = self.get_neighbors_frontier(v)
                     Open_Space = False
                     for j in voisinsbis :
-                        if (self.occupancy_map[j] < 0) :
-                            Open_Space == True
+                        if (self.occupancy_map[j[0], j[1]] < 0) :
+                            Open_Space = True
                     if Open_Space :
-                        marking[v] = 1
+                        marking[v[0], v[1]] = 1
                         m_queue = m_queue + [v]
+                        #print("Adding ", v, " to mqueue")
             #Marking the current emplacement as analyzed.
-            marking[p] = 2
+            marking[p[0],p[1]] = 2
 
         #Returning the result.
         return(result)
+    
+    def display_marking(self, markingmap):
+        """
+        Screen display of map and robot pose, using matplotlib
+        robot_pose : [x, y, theta] nparray, corrected robot pose
+        """
+
+        plt.cla()
+        plt.imshow(markingmap, origin='lower',
+                   extent=[self.x_min_world, self.x_max_world, self.y_min_world, self.y_max_world])
+        plt.clim(-4, 4)
+        plt.axis("equal")
+
+        # plt.show()
+        plt.pause(0.001)
