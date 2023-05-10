@@ -186,12 +186,18 @@ class TinySlam:
         sigma = 50
         best_score = 0
         save_pos = odom
+
+        #Tant qu'on a pas trouvé le maximum local pour N itérations
         while (counter < N) :
+
+            #On génère une position aléatoire et on compute le score.
             (offset_x, offset_y) = np.random.normal(0, sigma, 2)
             offset_angle = np.random.normal(0, 0.2)
             new_pos = (odom[0] + offset_x, odom[1] + offset_y, odom[2] + offset_angle)
             score = self.score(lidar, new_pos)
             counter += 1
+
+            #Si on a trouvé mieux on remet le compteur à 0.
             if (score > best_score) :
                 best_score = score
                 counter = 0
@@ -206,13 +212,17 @@ class TinySlam:
         lidar : placebot object with lidar data
         pose : [x, y, theta] nparray, corrected pose in world coordinates
         """
+        #Récupération et filtrage des données du robot.
         distances = lidar.get_sensor_values()
         angles = lidar.get_ray_angles()
+        
+        #On élimine les rayons allant plus loin que la max range.
         max_range = lidar.max_range
         index = np.where(distances < max_range-10)
         distances = distances[index]
         angles = angles[index]
         
+        #On récupère un jeu de coordonnées pour les différents remplissage.
         corrected_angles = angles + pose[2]
         coordinates_robot_x = pose[0] + np.cos(corrected_angles)*distances
         coordinates_robot_y = pose[1] + np.sin(corrected_angles)*distances
@@ -220,9 +230,11 @@ class TinySlam:
         coordinates_robot_y_far = pose[1] + np.sin(corrected_angles)*distances*0.99
         lenght = len(coordinates_robot_x)
         
+        #On ajoute des lignes de valeurs négatives pour caractériser l'espace vide avant les obstacles
         for i in range(lenght) :
             self.add_map_line(pose[0], pose[1], coordinates_robot_x_far[i], coordinates_robot_y_far[i], -2)
         
+        #On ajoute les obstacles.
         self.add_map_points(coordinates_robot_x, coordinates_robot_y, +4)
         self.display(pose)
 
@@ -237,10 +249,12 @@ class TinySlam:
         start : [x, y, theta] nparray, start pose in world coordinates
         goal : [x, y, theta] nparray, goal pose in world coordinates
         """
-        # TODO for TP5
 
-        path = [start, goal]  # list of poses
-        return path
+        path = self.A_Star(start, goal)
+        if path == False :
+            return False
+        else :
+            return path
 
     def display(self, robot_pose):
         """
@@ -317,6 +331,7 @@ class TinySlam:
         """
         # TODO
 
+    #Get the free space around the current position.
     def get_neighbors(self, current):
         voisins = []
         for i in range(-1,2,1) :
@@ -347,9 +362,11 @@ class TinySlam:
             current = cameFrom[current]
         return path
     
+    #Basic heuristic function, if you want to change it you can there.
     def heuristic(self, a, b):
         return np.linalg.norm(b-a)
 
+    #A* as implemented in the slides
     def A_Star(self, start, goal) :
         cameFrom = np.zeros((self.x_max_map, self.y_max_map))
         
@@ -436,23 +453,19 @@ class TinySlam:
             #Pop the first element of the queue
             p = m_queue[0]
             m_queue = m_queue[1:]
-            #print("Getting an element from the m_queue", p)
             
             #If p has been analysed, do nothing.
             if(marking[p[0], p[1]] == 2):
-                #print("Already analyzed, doing nothing.")
                 continue
 
             #Else, under the condition that the emplacement is a frontier.
             if(self.is_frontier(p) == True):
-                #print("Starting building a frontier from ", p)
                 #New queue for frontier neighbors
                 f_queue = []
                 #Collection of the frontier's emplacement
                 NewFrontier = []
                 #Appending the new element
                 f_queue = f_queue + [p]
-                #print("Enqueuing the element in f_queue ", f_queue)
                 #Marking the element as part of a undiscovered frontier
                 marking[p[0], p[1]] = 3
                 #While there's still elements of the frontier not analysed.
@@ -461,27 +474,22 @@ class TinySlam:
                     #Pop elements of the queue
                     q = f_queue[0]
                     f_queue = f_queue[1:]
-                    #print("Popping the element ", q)
 
                     #If already analysed
                     if (marking[q[0], q[1]] in (2, 4)):
-                        #print(q, " Already marked")
                         continue
+                    
                     #Else if the emplacement is part of a frontier (hence the current one)
                     if (self.is_frontier(q) == True):
                         #Add it to the frontier
                         NewFrontier = NewFrontier + [q]
-                        #print(q, " Is in the frontier, adding it")
-                        #self.display_marking(marking)
 
                         #Getting its neighbors and adding them to the queue if possible.
                         voisins = self.get_neighbors_frontier(q)
-                        #print("Getting ", q, " neighbors ", voisins)
                         for i in voisins :
                             if (marking[i[0], i[1]] not in (2, 3, 4)) :
                                 f_queue = f_queue + [i]
                                 marking[i[0], i[1]] = 3
-                                #print("Adding ", i, " to fqueue")
                     
                     #Characterizing the current emplacement as analyzed.
                     marking[q[0], q[1]] = 4
@@ -495,14 +503,13 @@ class TinySlam:
                         centroid[i] = total/len(NewFrontier)
                     print("Centroid is ", [int(centroid[0]), int(centroid[1])])
                     result.append([int(centroid[0]), int(centroid[1])])
-                #print("New Frontier added ", NewFrontier)
+
                 #Marking the elements of the frontier according to their new status
                 for i in NewFrontier :
                     marking[i[0], i[1]] = 2
             
             #Getting the neighbors of the current position
             voisins = self.get_neighbors_frontier(p)
-            #rint("Getting ", p, " neighbors ", voisins)
             
             #If the neighbors have not been analyzed, and have an open and practicable space, then add them to the queue
             for v in voisins :
@@ -515,13 +522,14 @@ class TinySlam:
                     if Open_Space :
                         marking[v[0], v[1]] = 1
                         m_queue = m_queue + [v]
-                        #print("Adding ", v, " to mqueue")
+
             #Marking the current emplacement as analyzed.
             marking[p[0],p[1]] = 2
 
         #Returning the result.
         return(result)
     
+    #A small function usefull for displaying the current state of the frontier marking, useless if you're not debugging tho.
     def display_marking(self, markingmap):
         """
         Screen display of map and robot pose, using matplotlib
